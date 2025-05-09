@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -39,18 +38,9 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
-	val := struct {
-		Status string `json:"status"`
-	}{
-		Status: "ok",
-	}
-	json, err := json.Marshal(val)
-	if err != nil {
-		return
-	}
-
-	w.WriteHeader(400)
-	w.Write(json)
+	time.Sleep(100 * time.Millisecond)
+	w.WriteHeader(200)
+	w.Write([]byte(`{ "status": "ok" }`))
 }
 
 func run(rootCtx context.Context) error {
