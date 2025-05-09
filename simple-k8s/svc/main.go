@@ -16,13 +16,12 @@ type Server struct {
 
 func NewServer() *Server {
 	mux := http.NewServeMux()
-
-	mux.HandleFunc("/healthz", handleHealth)
-
 	srv := &http.Server{
 		Addr:    ":8080",
 		Handler: mux,
 	}
+
+	mux.HandleFunc("/healthz", handleHealth)
 
 	return &Server{
 		srv: srv,
