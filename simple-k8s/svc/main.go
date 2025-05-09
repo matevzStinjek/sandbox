@@ -22,6 +22,7 @@ func NewServer() *Server {
 	}
 
 	mux.HandleFunc("/healthz", handleHealth)
+	mux.HandleFunc("/", handleRoot)
 
 	return &Server{
 		srv: srv,
@@ -37,9 +38,14 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
-	time.Sleep(100 * time.Millisecond)
 	w.WriteHeader(200)
 	w.Write([]byte(`{ "status": "ok" }`))
+}
+
+func handleRoot(w http.ResponseWriter, r *http.Request) {
+	time.Sleep(100 * time.Millisecond)
+	w.WriteHeader(200)
+	w.Write([]byte(`ok`))
 }
 
 func run(rootCtx context.Context) error {
