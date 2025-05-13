@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+const (
+	ADDR = ":8080"
+)
+
 type Server struct {
 	srv *http.Server
 }
@@ -17,7 +21,7 @@ type Server struct {
 func NewServer() *Server {
 	mux := http.NewServeMux()
 	srv := &http.Server{
-		Addr:    ":8080",
+		Addr:    ADDR,
 		Handler: mux,
 	}
 
@@ -30,6 +34,7 @@ func NewServer() *Server {
 }
 
 func (s *Server) Start() error {
+	log.Printf("starting server on %s", ADDR)
 	return s.srv.ListenAndServe()
 }
 
@@ -38,6 +43,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 	w.Write([]byte(`{ "status": "ok" }`))
 }
