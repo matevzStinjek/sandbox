@@ -1,0 +1,156 @@
+# Standard Kubernetes API versioning - Deployment is part of the apps/v1 API group
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  # Name your deployment - this is what you'll reference in kubectl commands
+  name: go-svc-app
+  # Namespace (optional) - defaults to "default" if not specified
+  namespace: default
+  # Labels are key-value pairs for organizing and selecting resources
+  labels:
+    app: go-svc
+    environment: testing
+
+spec:
+  # Number of pod replicas to run - can be scaled manually or automatically
+  replicas: 2
+  
+  # Selector tells the Deployment which pods to manage
+  # This MUST match the pod template labels below
+  selector:
+    matchLabels:
+      app: go-svc
+  
+  # Template defines the pod specification
+  template:
+    metadata:
+      labels:
+        # These labels MUST match the selector above
+        app: go-svc
+    
+    spec:
+      # Containers section - you can have multiple containers in a pod
+      containers:
+      - name: go-svc-container
+        
+        # Image name - alternatives:
+        # - "your-registry/image:tag" for remote registries
+        # - "localhost:5000/image:tag" for local registry
+        # - "image:tag" for images in minikube's Docker daemon
+        image: go-svc:latest
+        
+        # Pull policy determines when to pull the image
+        # "Always" - pull on every pod start
+        # "IfNotPresent" - only pull if image doesn't exist locally
+        # "Never" - never pull, must exist locally
+        imagePullPolicy: Never
+        
+        # Port the container exposes
+        ports:
+        - containerPort: 8080
+          # Protocol defaults to TCP, can also be UDP
+          protocol: TCP
+        
+        # Liveness probe - Kubernetes checks if container is alive
+        # If fails, Kubernetes restarts the container
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          # Alternatives:
+          # - exec: run a command
+          # - tcpSocket: check if port is open
+          
+          # Probe timing configuration
+          initialDelaySeconds: 10  # Wait before first check
+          periodSeconds: 10        # Check every 10 seconds
+          timeoutSeconds: 1        # Timeout for each check
+          successThreshold: 1      # Times to succeed before marking healthy
+          failureThreshold: 3      # Times to fail before marking unhealthy
+        
+        # Readiness probe - Kubernetes checks if container is ready to serve traffic
+        # If fails, pod is removed from service endpoints
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 2
+        
+        # Resource requests and limits
+        resources:
+          # Requests - minimum resources needed
+          requests:
+            cpu: 100m        # 0.1 CPU core
+            memory: 64Mi     # 64 MiB of memory
+          # Limits - maximum resources allowed
+          # Setting too low might cause OOMKill or throttling
+          limits:
+            cpu: 200m        # 0.2 CPU core
+            memory: 128Mi    # 128 MiB of memory
+        
+        # Environment variables
+        env:
+        - name: LOG_LEVEL
+          value: "debug"
+        # Alternative ways to set env vars:
+        # - valueFrom: { configMapKeyRef: ... }
+        # - valueFrom: { secretKeyRef: ... }
+        
+        # Volume mounts (optional)
+        # volumeMounts:
+        # - name: config-volume
+        #   mountPath: /etc/config
+      
+      # Volumes (optional) - mounted at container level above
+      # volumes:
+      # - name: config-volume
+      #   configMap:
+      #     name: app-config
+      
+      # Restart policy for all containers in pod
+      # "Always" - always restart (default)
+      # "OnFailure" - restart on non-zero exit
+      # "Never" - never restart
+      restartPolicy: Always
+      
+      # Node selector (optional) - constrain pods to specific nodes
+      # nodeSelector:
+      #   kubernetes.io/os: linux
+      
+      # Tolerations (optional) - allow scheduling on tainted nodes
+      # tolerations:
+      # - key: "dedicated"
+      #   operator: "Equal"
+      #   value: "experimental"
+      #   effect: "NoSchedule"
+
+---
+
+# Service to expose your application
+apiVersion: v1
+kind: Service
+metadata:
+  name: go-svc-service
+  labels:
+    app: go-svc
+spec:
+  # Service type determines how the service is exposed
+  # "ClusterIP" - only accessible within cluster (default)
+  # "NodePort" - accessible from outside cluster via node IP
+  # "LoadBalancer" - creates external load balancer (needs cloud provider)
+  type: ClusterIP
+  
+  # Selector determines which pods this service routes to
+  selector:
+    app: go-svc
+  
+  ports:
+  - port: 80          # Service port
+    targetPort: 8080  # Container port
+    # NodePort (optional) - specific port on each node
+    # nodePort: 30080  # If not specified, Kubernetes assigns one
+    protocol: TCP
