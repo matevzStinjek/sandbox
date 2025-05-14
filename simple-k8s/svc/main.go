@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -25,8 +27,9 @@ func NewServer() *Server {
 		Handler: mux,
 	}
 
-	mux.HandleFunc("/healthz", handleHealth)
-	mux.HandleFunc("/", handleRoot)
+	mux.HandleFunc("/work", cpuIntensiveHandler)
+	mux.HandleFunc("/healthz", healthHandler)
+	mux.HandleFunc("/", rootHandler)
 
 	return &Server{
 		srv: srv,
@@ -42,16 +45,37 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.srv.Shutdown(ctx)
 }
 
-func handleHealth(w http.ResponseWriter, r *http.Request) {
+func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 	w.Write([]byte(`{ "status": "ok" }`))
 }
 
-func handleRoot(w http.ResponseWriter, r *http.Request) {
+func rootHandler(w http.ResponseWriter, r *http.Request) {
 	time.Sleep(100 * time.Millisecond)
 	w.WriteHeader(200)
 	w.Write([]byte(`ok`))
+}
+
+func cpuIntensiveHandler(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
+	targetDuration := 100 * time.Millisecond
+
+	iterations := 0
+	data := []byte("initial data")
+
+	// Hash until we've spent at least 100ms doing CPU work
+	for time.Since(startTime) < targetDuration {
+		hash := sha256.Sum256(data)
+		data = hash[:]
+		iterations++
+	}
+
+	actualDuration := time.Since(startTime)
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("Performed %d hashing operations in %v\n",
+		iterations, actualDuration)))
 }
 
 func run(rootCtx context.Context) error {
