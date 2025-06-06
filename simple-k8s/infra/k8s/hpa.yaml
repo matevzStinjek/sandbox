@@ -1,0 +1,80 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: go-svc-hpa
+spec:
+  # Reference to the deployment that will be scaled
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: go-svc-app
+  
+  # Boundary constraints for scaling
+  minReplicas: 1   # Lower bound - prevents scaling to zero
+  maxReplicas: 10  # Upper bound - prevents runaway scaling
+  
+  # Multiple metrics can be used for scaling decisions
+  metrics:
+  # CPU-based scaling - most common and reliable metric
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        # Two options: Utilization (percentage) or AverageValue (absolute)
+        # Utilization is a percentage of resource.requests.cpu
+        type: Utilization
+        # 70% is optimal for most workloads - balances responsiveness and stability
+        # Lower values (50%) cause preemptive scaling but risk oscillation
+        # Higher values (80%+) improve efficiency but risk performance degradation during scale-up
+        averageUtilization: 70
+  
+  # Memory-based scaling - less common but useful for memory-intensive apps
+  # Caution: Memory-based scaling is dangerous because memory doesn't
+  # decrease after load subsides, causing persistent high utilization
+  # - type: Resource
+  #   resource:
+  #     name: memory
+  #     target:
+  #       type: Utilization
+  #       averageUtilization: 80  # Higher threshold for memory is appropriate
+  
+  # Advanced behavior configuration to prevent oscillation and thrashing
+  behavior:
+    # Controls how rapidly pods are added
+    scaleUp:
+      # Stabilization window - time HPA waits to scale up after metrics cross threshold
+      # Short window = faster scaling, higher reactivity
+      # Long window = resistance to temporary spikes, better stability
+      stabilizationWindowSeconds: 30
+      
+      # Multiple scaling policies can be defined (most aggressive will be selected)
+      policies:
+      # Percentage policy - good for handling sudden large traffic spikes
+      - type: Percent
+        value: 100  # Double the pods in a single scale-up (100% increase)
+        periodSeconds: 60  # Time window for percentage calculation
+      
+      # Pods policy - sets absolute maximum pods added per period
+      - type: Pods
+        value: 4    # Add at most 4 pods at once
+        periodSeconds: 60  # Per minute
+    
+    # Controls how pods are removed - generally wants to be more conservative than scaleUp
+    scaleDown:
+      # Longer stabilization window for scale down prevents rapid scale down/up cycles
+      # Critical for preventing "thrashing" behavior
+      stabilizationWindowSeconds: 300  # 5 minutes
+      
+      policies:
+      # Slower removal rate - common pattern is "scale up fast, scale down slow"
+      - type: Percent
+        value: 20   # Remove 20% of current pods per period
+        periodSeconds: 60
+      - type: Pods
+        value: 2    # Remove at most 2 pods per period
+        periodSeconds: 60
+      
+      # selectPolicy determines which policy is applied when multiple are specified
+      # "Min" is safest - chooses the more conservative scale-down behavior
+      # "Max" would be more aggressive
+      selectPolicy: Min
